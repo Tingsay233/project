@@ -5,7 +5,11 @@ const fs = require("fs");
 const path = require("path");
 
 const PORT = process.env.PORT || 3000;
-const API_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_KEY = process.env.GEMINI_API_KEY;      // 免费：https://aistudio.google.com/apikey
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const PROVIDER = process.env.AI_PROVIDER || (GEMINI_KEY ? "gemini" : ANTHROPIC_KEY ? "claude" : "none");
+const API_KEY = PROVIDER === "gemini" ? GEMINI_KEY : PROVIDER === "claude" ? ANTHROPIC_KEY : "";
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 const PUBLIC = path.join(__dirname, "public");
 const crypto = require("crypto");
@@ -81,9 +85,36 @@ Output ONLY one JSON object, no other text, in this format:
 If the image is not food, set is_food to false and leave the rest empty.
 For Southeast Asian / Chinese dishes (nasi lemak, char kway teow, Hainanese chicken rice, laksa, teh tarik, etc.) estimate based on how they are really cooked, and count oil and sauces.`;
 
+function parseJson(text) {
+  const m = String(text).match(/\{[\s\S]*\}/);
+  if (!m) throw Object.assign(new Error("无法解析 AI 返回结果"), { status: 502 });
+  return JSON.parse(m[0]);
+}
+
+async function analyzeGemini(imageB64, mediaType, lang) {
+  const gen = { responseMimeType: "application/json", maxOutputTokens: 2048, temperature: 0.2 };
+  if (GEMINI_MODEL.includes("2.5")) gen.thinkingConfig = { thinkingBudget: 0 }; // 不需要长思考，更快更省
+  const res = await fetch(`${process.env.GEMINI_BASE || "https://generativelanguage.googleapis.com"}/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": GEMINI_KEY },
+    body: JSON.stringify({
+      contents: [{ parts: [{ inline_data: { mime_type: mediaType, data: imageB64 } }, { text: lang === "en" ? PROMPT_EN : PROMPT_ZH }] }],
+      generationConfig: gen,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const quota = res.status === 429;
+    throw Object.assign(new Error(quota ? "免费额度暂时用完，请稍后再试 / Free quota reached, try later" : data?.error?.message || "AI 服务出错"), { status: quota ? 429 : 502 });
+  }
+  const text = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("");
+  return parseJson(text);
+}
+
 async function analyze(imageB64, mediaType, lang) {
+  if (PROVIDER === "gemini") return analyzeGemini(imageB64, mediaType, lang);
   if (!API_KEY) {
-    const e = new Error("服务器未设置 ANTHROPIC_API_KEY");
+    const e = new Error("服务器未设置 GEMINI_API_KEY（免费）或 ANTHROPIC_API_KEY");
     e.status = 503;
     throw e;
   }
@@ -114,10 +145,7 @@ async function analyze(imageB64, mediaType, lang) {
     e.status = 502;
     throw e;
   }
-  const text = (data.content || []).map((b) => b.text || "").join("");
-  const m = text.match(/\{[\s\S]*\}/);
-  if (!m) throw Object.assign(new Error("无法解析 AI 返回结果"), { status: 502 });
-  return JSON.parse(m[0]);
+  return parseJson((data.content || []).map((b) => b.text || "").join(""));
 }
 
 const MIME = {
@@ -191,5 +219,5 @@ http
     }
   })
   .listen(PORT, () => {
-    console.log(`轻卡已启动: http://localhost:${PORT}  (AI 识别: ${API_KEY ? "已开启" : "未设置 ANTHROPIC_API_KEY，仅手动记录"}; 访问密码: ${ACCESS_PASSWORD ? "已开启" : "未设置，任何人都能用你的额度！"})`);
+    console.log(`轻卡已启动: http://localhost:${PORT}  (AI 识别: ${API_KEY ? "已开启 (" + PROVIDER + ")" : "未设置 GEMINI_API_KEY / ANTHROPIC_API_KEY，仅手动记录"}; 访问密码: ${ACCESS_PASSWORD ? "已开启" : "未设置，任何人都能用你的额度！"})`);
   });

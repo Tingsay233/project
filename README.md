@@ -13,7 +13,7 @@
 
 **方法 A：部署到网上（推荐，随时随地用）**
 1. 打开 https://render.com ，用 GitHub 登录 → New → Web Service → 选这个仓库
-2. 它会读取 `render.yaml`，在 Environment 里填 `ANTHROPIC_API_KEY`（不填则只能手动记录）
+2. 它会读取 `render.yaml`，在 Environment 里填 `GEMINI_API_KEY`（免费，见下；不填则只能手动记录）
 3. 部署完得到 `https://xxx.onrender.com`，手机浏览器打开
 4. 安装到主屏幕：iPhone 用 Safari →「分享」→「添加到主屏幕」；Android 用 Chrome →「⋮」→「安装应用」
 
@@ -21,7 +21,7 @@
 
 **方法 B：在自己电脑上跑，手机同一个 Wi-Fi 访问**
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export GEMINI_API_KEY=你的免费key
 node server.js
 ```
 手机浏览器打开 `http://电脑的局域网IP:3000`（Mac：`ipconfig getifaddr en0`；Windows：`ipconfig`）。
@@ -45,7 +45,7 @@ node server.js
 ## 本机运行
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...   # 没设置也能用，只是拍照识别会关闭
+export GEMINI_API_KEY=你的免费key   # 没设置也能用，只是拍照识别会关闭
 node server.js                         # Node 18+，无需 npm install
 # 打开 http://localhost:3000
 ```

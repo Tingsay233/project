@@ -6,8 +6,10 @@ services:
     buildCommand: echo no build
     startCommand: node server.js
     envVars:
+      - key: GEMINI_API_KEY
+        sync: false   # 免费！在 https://aistudio.google.com/apikey 申请，部署时在 Render 面板里填
       - key: ANTHROPIC_API_KEY
-        sync: false   # 部署时在 Render 面板里填，不要写进代码
+        sync: false   # 可选：不用 Gemini 时才需要
       - key: ACCESS_PASSWORD
         sync: false   # 访问密码：设了之后，没有密码的人用不了拍照识别（保护你的 API 额度）
       - key: MAX_DAILY
