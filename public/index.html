@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#16a34a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LightCal">
 <title>轻卡 LightCal</title>
 <style>
 :root{--bg:#f5f7f4;--card:#fff;--ink:#1c2b22;--sub:#6b7a70;--line:#e3e9e4;--g:#16a34a;--g2:#dcfce7;--warn:#f59e0b;--bad:#dc2626;--p:#3b82f6;--c:#f59e0b;--f:#ec4899}
@@ -55,6 +60,9 @@ ul.g{padding-left:20px;margin:6px 0}ul.g li{margin:4px 0}
 .item.off{opacity:.4}.item.off .nm{text-decoration:line-through}
 .adj{font-size:12px;color:var(--sub);margin:6px 0 0}
 .link{background:none;color:var(--g);width:auto;padding:4px 0;font-size:13px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:flex;align-items:center;background:var(--g2);color:var(--ink);border-radius:99px;padding:4px 4px 4px 12px;font-size:14px;gap:6px}
+.chip b{cursor:pointer}.chip small{color:var(--sub)}.chip .x{padding:2px 8px}
 .down{color:var(--g)}.up{color:var(--bad)}
 </style>
 </head>
@@ -84,6 +92,7 @@ ul.g{padding-left:20px;margin:6px 0}ul.g li{margin:4px 0}
   <div class="card"><h2 data-i18n="ate_h"></h2><div id="log"></div>
     <div id="empty" class="muted" style="padding:6px 0" data-i18n="ate_empty"></div>
   </div>
+  <div class="card"><h2 data-i18n="fav_h"></h2><div id="favs" class="chips"></div><div id="favEmpty" class="muted" data-i18n="fav_empty"></div></div>
   <div class="card"><h2 data-i18n="manual_h"></h2>
     <div class="row"><select id="foodSel"></select><button class="sm" style="flex:0 0 auto" onclick="addManual()" data-i18n="add"></button></div>
   </div>
@@ -114,6 +123,7 @@ ul.g{padding-left:20px;margin:6px 0}ul.g li{margin:4px 0}
       <select id="rMeal"></select>
       <button onclick="saveResult()" data-i18n="log_it"></button>
     </div>
+    <button class="link" style="margin-top:6px" onclick="favResult()" data-i18n="fav_this"></button>
   </div>
 </section>
 
@@ -207,7 +217,7 @@ zh:{
  left:"还可以吃",kcal_goal:"千卡 / 目标",kcal:"千卡",protein:"蛋白质",carbs:"碳水",fat:"脂肪",
  ate_h:"今天吃了什么",ate_empty:"还没有记录，去「拍照」记第一餐吧 📷",manual_h:"手动添加",add:"添加",
  snap_btn:"点击拍照 / 选择照片",ai_off:"服务器未设置 ANTHROPIC_API_KEY，AI 识别暂不可用。可先用「今日」页手动添加。",
- busy:"🔍 AI 正在分析食物，请稍等…",adj_hint:"👆 份量不对？点 − / + 调整每样食物的份量，✕ 去掉没吃的",reset:"↺ 恢复 AI 原始估算",log_it:"记入今天",meals:["早餐","午餐","晚餐","点心"],
+ busy:"🔍 AI 正在分析食物，请稍等…",fav_h:"⭐ 常吃食物（点一下直接记入）",fav_empty:"还没有收藏。在拍照结果或今天的记录上点 ☆ 就能收藏。",fav_this:"⭐ 收藏这一餐，下次一键记录",fav_saved:"已收藏 ✓",adj_hint:"👆 份量不对？点 − / + 调整每样食物的份量，✕ 去掉没吃的",reset:"↺ 恢复 AI 原始估算",log_it:"记入今天",meals:["早餐","午餐","晚餐","点心"],
  conf:{high:"高",medium:"中",low:"低（建议手动调整）"},accuracy:"准确度",hscore:"减肥友好度",
  err_fail:"识别失败",err_nofood:"没有在照片里发现食物，请重拍一张。",err_img:"无法读取这张图片",this_meal:"这一餐",photo_meal:"拍照餐点",
  g:"克",
@@ -242,7 +252,7 @@ en:{
  left:"Left to eat",kcal_goal:"kcal / goal",kcal:"kcal",protein:"Protein",carbs:"Carbs",fat:"Fat",
  ate_h:"What I ate today",ate_empty:"Nothing logged yet — snap your first meal 📷",manual_h:"Add manually",add:"Add",
  snap_btn:"Tap to take / choose a photo",ai_off:"ANTHROPIC_API_KEY is not set on the server, so AI recognition is off. Use manual add on the Today tab.",
- busy:"🔍 AI is analysing your food…",adj_hint:"👆 Portion off? Tap − / + to adjust each food, ✕ to remove what you didn't eat",reset:"↺ Reset to AI estimate",log_it:"Log it",meals:["Breakfast","Lunch","Dinner","Snack"],
+ busy:"🔍 AI is analysing your food…",fav_h:"⭐ Favorites (tap to log)",fav_empty:"No favorites yet. Tap ☆ on a photo result or a logged item to save it.",fav_this:"⭐ Save this meal as a favorite",fav_saved:"Saved ✓",adj_hint:"👆 Portion off? Tap − / + to adjust each food, ✕ to remove what you didn't eat",reset:"↺ Reset to AI estimate",log_it:"Log it",meals:["Breakfast","Lunch","Dinner","Snack"],
  conf:{high:"High",medium:"Medium",low:"Low (please adjust)"},accuracy:"Confidence",hscore:"Diet-friendly",
  err_fail:"Recognition failed",err_nofood:"No food found in this photo. Please retake.",err_img:"Couldn't read this image",this_meal:"This meal",photo_meal:"Photo meal",
  g:"g",
@@ -378,7 +388,32 @@ function render(){
   });
   $("empty").style.display = log.length ? "none":"block";
   const meals = t("meals");
-  $("log").innerHTML = log.map((e,i)=>`<div class="item"><div><b>${esc(e.name)}</b><small>${meals[e.meal]??""} · ${t("protein")} ${Math.round(e.p)} · ${t("carbs")} ${Math.round(e.c)} · ${t("fat")} ${Math.round(e.f)}</small></div><div><b>${Math.round(e.kcal)}</b> <button class="x" onclick="delEntry(${i})">✕</button></div></div>`).join("");
+  $("log").innerHTML = log.map((e,i)=>`<div class="item"><div><b>${esc(e.name)}</b><small>${meals[e.meal]??""} · ${t("protein")} ${Math.round(e.p)} · ${t("carbs")} ${Math.round(e.c)} · ${t("fat")} ${Math.round(e.f)}</small></div><div><b>${Math.round(e.kcal)}</b> <button class="x" onclick="favEntry(${i})" aria-label="favorite">${isFav(e.name)?"★":"☆"}</button><button class="x" onclick="delEntry(${i})">✕</button></div></div>`).join("");
+  renderFavs();
+}
+
+// ================= favorites =================
+let favs = store.get("favs", []); // [{name,kcal,p,c,f}]
+const isFav = n => favs.some(x=>x.name===n);
+function saveFav(e){
+  const name = e.name; if (isFav(name)) { favs = favs.filter(x=>x.name!==name); }
+  else favs.push({name, kcal:Math.round(e.kcal), p:Math.round(e.p), c:Math.round(e.c), f:Math.round(e.f)});
+  store.set("favs", favs); render();
+}
+function favEntry(i){ saveFav(dayLog()[i]); }
+function favResult(){
+  const x = resultTotal(last), name = last.dish || t("photo_meal");
+  if (!isFav(name)) favs.push({name, kcal:Math.round(x.kcal), p:Math.round(x.protein), c:Math.round(x.carbs), f:Math.round(x.fat)});
+  else favs = favs.map(f=>f.name===name ? {name, kcal:Math.round(x.kcal), p:Math.round(x.protein), c:Math.round(x.carbs), f:Math.round(x.fat)} : f);
+  store.set("favs", favs); render();
+  const b = document.querySelector("#result button[data-i18n=fav_this]"); b.textContent = t("fav_saved");
+  setTimeout(()=>b.textContent = t("fav_this"), 1500);
+}
+function logFav(i){ const f = favs[i]; addEntry({name:f.name, meal:guessMeal(), kcal:f.kcal, p:f.p, c:f.c, f:f.f}); }
+function delFav(i){ favs.splice(i,1); store.set("favs", favs); render(); }
+function renderFavs(){
+  $("favEmpty").style.display = favs.length ? "none":"block";
+  $("favs").innerHTML = favs.map((f,i)=>`<span class="chip"><b onclick="logFav(${i})">${esc(f.name)} <small>${f.kcal}</small></b><button class="x" onclick="delFav(${i})" aria-label="remove">✕</button></span>`).join("");
 }
 
 // ================= weight + chart =================
