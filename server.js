@@ -9,7 +9,7 @@ const API_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 const PUBLIC = path.join(__dirname, "public");
 
-const PROMPT = `你是一位专业营养师。请分析这张食物照片，估算图中每样食物的份量与营养。
+const PROMPT_ZH = `你是一位专业营养师。请分析这张食物照片，估算图中每样食物的份量与营养。
 只输出一个 JSON 对象，不要任何其他文字，格式：
 {
   "is_food": true/false,
@@ -25,7 +25,23 @@ const PROMPT = `你是一位专业营养师。请分析这张食物照片，估�
 如果图中不是食物，is_food 设为 false，其余字段可为空。
 常见东南亚/中式食物（椰浆饭、炒粿条、海南鸡饭、叻沙、面包、奶茶等）请按实际做法估算，油和酱汁也要计入。`;
 
-async function analyze(imageB64, mediaType) {
+const PROMPT_EN = `You are a professional dietitian. Analyze this food photo and estimate the portion and nutrition of every food in it.
+Output ONLY one JSON object, no other text, in this format:
+{
+  "is_food": true/false,
+  "dish": "name of the whole meal (English)",
+  "items": [
+    {"name":"food name","portion":"estimated portion, e.g. 1 bowl (~250g)","kcal":integer,"protein":grams,"carbs":grams,"fat":grams}
+  ],
+  "total": {"kcal":integer,"protein":grams,"carbs":grams,"fat":grams},
+  "confidence": "high|medium|low",
+  "health_score": integer 1-10 (10 = best for weight loss),
+  "tip": "one specific weight-loss tip, e.g. how to cut calories or what to swap"
+}
+If the image is not food, set is_food to false and leave the rest empty.
+For Southeast Asian / Chinese dishes (nasi lemak, char kway teow, Hainanese chicken rice, laksa, teh tarik, etc.) estimate based on how they are really cooked, and count oil and sauces.`;
+
+async function analyze(imageB64, mediaType, lang) {
   if (!API_KEY) {
     const e = new Error("服务器未设置 ANTHROPIC_API_KEY");
     e.status = 503;
@@ -46,7 +62,7 @@ async function analyze(imageB64, mediaType) {
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: mediaType, data: imageB64 } },
-            { type: "text", text: PROMPT },
+            { type: "text", text: lang === "en" ? PROMPT_EN : PROMPT_ZH },
           ],
         },
       ],
@@ -101,9 +117,9 @@ http
         return send(res, 200, { ai: !!API_KEY });
       }
       if (req.method === "POST" && url.pathname === "/api/analyze") {
-        const { image, mediaType } = JSON.parse(await readBody(req));
+        const { image, mediaType, lang } = JSON.parse(await readBody(req));
         if (!image) return send(res, 400, { error: "缺少图片" });
-        const result = await analyze(image, mediaType || "image/jpeg");
+        const result = await analyze(image, mediaType || "image/jpeg", lang);
         return send(res, 200, result);
       }
       if (req.method === "GET") {
