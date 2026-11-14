@@ -8,3 +8,7 @@ services:
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false   # 部署时在 Render 面板里填，不要写进代码
+      - key: ACCESS_PASSWORD
+        sync: false   # 访问密码：设了之后，没有密码的人用不了拍照识别（保护你的 API 额度）
+      - key: MAX_DAILY
+        value: "200"  # 全站每天最多识别次数

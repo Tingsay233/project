@@ -8,6 +8,46 @@ const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
 const PUBLIC = path.join(__dirname, "public");
+const crypto = require("crypto");
+
+// ---- 访问保护：设置 ACCESS_PASSWORD 后，识别接口需要密码 ----
+const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || "";
+const MAX_DAILY = +process.env.MAX_DAILY || 200;          // 全站每天最多识别次数（保护你的 API 额度）
+const MAX_PER_IP_HOUR = +process.env.MAX_PER_IP_HOUR || 30; // 每个 IP 每小时最多识别次数
+const hits = new Map();   // ip -> [timestamps] 识别次数
+const fails = new Map();  // ip -> [timestamps] 密码错误次数
+let daily = { day: "", n: 0 };
+
+const clientIp = (req) => (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").split(",")[0].trim();
+function recent(map, ip, windowMs) {
+  const now = Date.now();
+  const arr = (map.get(ip) || []).filter((t) => now - t < windowMs);
+  map.set(ip, arr);
+  return arr;
+}
+function safeEqual(a, b) {
+  const ha = crypto.createHash("sha256").update(String(a)).digest();
+  const hb = crypto.createHash("sha256").update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+function guard(req) {
+  const ip = clientIp(req);
+  if (ACCESS_PASSWORD) {
+    if (recent(fails, ip, 10 * 60e3).length >= 5)
+      throw Object.assign(new Error("密码错误次数过多，请 10 分钟后再试 / Too many attempts, try again in 10 min"), { status: 429 });
+    if (!safeEqual(req.headers["x-access-password"] || "", ACCESS_PASSWORD)) {
+      fails.get(ip).push(Date.now());
+      throw Object.assign(new Error("需要访问密码 / Access password required"), { status: 401 });
+    }
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  if (daily.day !== today) daily = { day: today, n: 0 };
+  if (daily.n >= MAX_DAILY) throw Object.assign(new Error("今日识别额度已用完 / Daily limit reached"), { status: 429 });
+  if (recent(hits, ip, 3600e3).length >= MAX_PER_IP_HOUR)
+    throw Object.assign(new Error("请求太频繁，请稍后再试 / Too many requests"), { status: 429 });
+  hits.get(ip).push(Date.now());
+  daily.n++;
+}
 
 const PROMPT_ZH = `你是一位专业营养师。请分析这张食物照片，估算图中每样食物的份量与营养。
 只输出一个 JSON 对象，不要任何其他文字，格式：
@@ -104,8 +144,13 @@ function readBody(req, limit = 8 * 1024 * 1024) {
   });
 }
 
+const CORS = {
+  "access-control-allow-origin": "*", // App(APK) 的 WebView 来源不同；接口本身有密码保护
+  "access-control-allow-headers": "content-type, x-access-password",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
+};
 function send(res, status, body, type = "application/json") {
-  res.writeHead(status, { "content-type": type });
+  res.writeHead(status, { "content-type": type, ...CORS });
   res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
@@ -113,10 +158,20 @@ http
   .createServer(async (req, res) => {
     try {
       const url = new URL(req.url, "http://x");
+      if (req.method === "OPTIONS") return send(res, 204, "");
       if (req.method === "GET" && url.pathname === "/api/status") {
-        return send(res, 200, { ai: !!API_KEY });
+        return send(res, 200, { ai: !!API_KEY, locked: !!ACCESS_PASSWORD });
+      }
+      if (req.method === "POST" && url.pathname === "/api/check") { // 仅校验密码，不消耗识别额度
+        if (ACCESS_PASSWORD) {
+          const ip = clientIp(req);
+          if (recent(fails, ip, 10 * 60e3).length >= 5) return send(res, 429, { error: "Too many attempts" });
+          if (!safeEqual(req.headers["x-access-password"] || "", ACCESS_PASSWORD)) { fails.get(ip).push(Date.now()); return send(res, 401, { error: "Wrong password" }); }
+        }
+        return send(res, 200, { ok: true });
       }
       if (req.method === "POST" && url.pathname === "/api/analyze") {
+        guard(req);
         const { image, mediaType, lang } = JSON.parse(await readBody(req));
         if (!image) return send(res, 400, { error: "缺少图片" });
         const result = await analyze(image, mediaType || "image/jpeg", lang);
@@ -136,5 +191,5 @@ http
     }
   })
   .listen(PORT, () => {
-    console.log(`轻卡已启动: http://localhost:${PORT}  (AI 识别: ${API_KEY ? "已开启" : "未设置 ANTHROPIC_API_KEY，仅手动记录"})`);
+    console.log(`轻卡已启动: http://localhost:${PORT}  (AI 识别: ${API_KEY ? "已开启" : "未设置 ANTHROPIC_API_KEY，仅手动记录"}; 访问密码: ${ACCESS_PASSWORD ? "已开启" : "未设置，任何人都能用你的额度！"})`);
   });

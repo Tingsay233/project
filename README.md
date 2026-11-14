@@ -27,6 +27,21 @@ node server.js
 手机浏览器打开 `http://电脑的局域网IP:3000`（Mac：`ipconfig getifaddr en0`；Windows：`ipconfig`）。
 点「拍照」会直接调起手机相机。
 
+## 🔒 访问密码与额度保护
+- 环境变量 `ACCESS_PASSWORD`：设置后，拍照识别需要输入密码（App 内「计划」页底部「设置」里填一次，会记住）。密码错 5 次锁 10 分钟。
+- `MAX_DAILY`（默认 200）：全站每天最多识别次数；`MAX_PER_IP_HOUR`（默认 30）：每个 IP 每小时次数。
+- 不设 `ACCESS_PASSWORD` 时，任何知道网址的人都能消耗你的 API 额度，服务启动时会提醒。
+
+## 📦 做成 APK（安卓安装包）
+用 Capacitor 把网页打包成安卓 App，由 GitHub Actions 云端构建，**不用在自己电脑装 Android Studio**：
+1. 先把后端部署到网上（见上面方法 A），得到 `https://xxx.onrender.com`
+2. GitHub 仓库 → Settings → Secrets and variables → Actions → **Variables** → 新建 `SERVER_URL` = 你的网址
+3. 仓库 → Actions → **Build APK** → Run workflow（推送 `public/` 或 `android-app/` 的改动也会自动构建）
+4. 构建完成后在该次运行页面底部 Artifacts 下载 `LightCal-apk`，解压得到 `app-debug.apk`
+5. 传到安卓手机安装（需允许「安装未知来源应用」）。打开后在「计划」页底部「设置」里填访问密码即可
+
+这是 debug 版 APK，自己用没问题；要上架 Google Play 需要再做签名的 release 版。iPhone 无法安装 APK，请用 Safari「添加到主屏幕」。
+
 ## 本机运行
 
 ```bash

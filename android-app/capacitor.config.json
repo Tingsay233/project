@@ -1,0 +1,6 @@
+{
+  "appId": "com.lightcal.app",
+  "appName": "轻卡 LightCal",
+  "webDir": "www",
+  "server": { "androidScheme": "https" }
+}
