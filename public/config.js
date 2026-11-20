@@ -1,1 +1,1 @@
-window.APP_CONFIG = { apiBase: "" }; // APK 构建时会被替换成你的服务器网址
+window.APP_CONFIG = { apiBase: "", build: 0, repo: "" }; // 构建 APK 时会被自动替换
