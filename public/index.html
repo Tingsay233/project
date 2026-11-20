@@ -542,7 +542,7 @@ const PROMPTS = {zh:`你是一位专业营养师。请分析这张食物照片�
   "health_score": 1到10的整数（10最适合减肥）,
   "tip": "一句针对减肥的具体建议，例如如何少吃点热量、怎么替换"
 }
-如果图中不是食物，is_food 设为 false，其余字段可为空。
+饮料、零食、包装食品、水果也算食物；只有画面里完全没有任何食物或饮料时，才把 is_food 设为 false。照片模糊或光线暗时仍请尽力估算，并把 confidence 设为 low。
 常见东南亚/中式食物（椰浆饭、炒粿条、海南鸡饭、叻沙、面包、奶茶等）请按实际做法估算，油和酱汁也要计入。`, en:`You are a professional dietitian. Analyze this food photo and estimate the portion and nutrition of every food in it.
 Output ONLY one JSON object, no other text, in this format:
 {
@@ -556,7 +556,7 @@ Output ONLY one JSON object, no other text, in this format:
   "health_score": integer 1-10 (10 = best for weight loss),
   "tip": "one specific weight-loss tip, e.g. how to cut calories or what to swap"
 }
-If the image is not food, set is_food to false and leave the rest empty.
+Drinks, snacks, packaged foods and fruit all count as food; set is_food to false only if there is no food or drink at all. If the photo is blurry or dark, still make your best estimate and set confidence to low.
 For Southeast Asian / Chinese dishes (nasi lemak, char kway teow, Hainanese chicken rice, laksa, teh tarik, etc.) estimate based on how they are really cooked, and count oil and sauces.`};
 // 向 Google 询问「这个密钥现在能用哪些模型」，按「版本高的 Flash 优先，lite 垫底」排好队
 async function listGeminiModels(key){
@@ -616,13 +616,21 @@ async function geminiDirect(b64, key){
   if (!names.length) throw new Error("No usable Gemini Flash model for this key");
   throw new Error(sawBusy ? t("err_busy") : sawQuota ? t("err_quota") : (lastMsg || t("err_fail")));
 }
+// AI 有时会过于保守地标「不是食物」：只要它给出了食物清单和热量，就照样显示，让用户自己调整
+function looksLikeFood(j){
+  if (!j) return false;
+  if (j.is_food === true || j.is_food === "true") return true;
+  const kcal = Number(j.total?.kcal ?? 0), n = (j.items||[]).length;
+  if (n > 0 && kcal > 0) { j.confidence = "low"; return true; }
+  return false;
+}
 async function analyze(){
   $("err").textContent = ""; $("busy").style.display = "block";
   try {
     const gkey = store.get("gkey","");
     if (gkey) { // 直连 Gemini：不需要任何服务器（APK 的默认方式）
       const j = await geminiDirect(pending.split(",")[1], gkey);
-      if (!j.is_food) throw new Error(t("err_nofood"));
+      if (!looksLikeFood(j)) throw new Error(t("err_nofood"));
       last = j; pending = null; showResult(j, true); return;
     }
     if (window.Capacitor && !apiBase()) { go("plan"); throw new Error(t("need_key")); }
@@ -631,7 +639,7 @@ async function analyze(){
     const j = await res.json().catch(()=>({}));
     if (res.status===401) { $("pwBox").style.display = "block"; $("pwIn").focus(); throw new Error(store.get("pw","") ? t("pw_wrong") : t("pw_need")); }
     if (!res.ok) throw new Error(j.error || t("err_fail"));
-    if (!j.is_food) throw new Error(t("err_nofood"));
+    if (!looksLikeFood(j)) throw new Error(t("err_nofood"));
     last = j; pending = null; showResult(j, true);
   } catch(e){ const offline = /Failed to fetch|Load failed|NetworkError/i.test(e.message);
     $("err").textContent = "❌ " + (offline ? (store.get("gkey","") ? t("err_net") : t("set_fail")) : e.message); }
