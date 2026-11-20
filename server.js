@@ -107,7 +107,7 @@ async function pickGeminiModel() {
   return (GEMINI_MODEL = c[0].name.replace(/^models\//, ""));
 }
 
-async function analyzeGemini(imageB64, mediaType, lang, retry = true) {
+async function analyzeGemini(imageB64, mediaType, lang, retry = true, hint = "") {
   const model = await pickGeminiModel();
   const gen = { responseMimeType: "application/json", maxOutputTokens: 4096 };
   if (model.includes("2.5")) gen.thinkingConfig = { thinkingBudget: 0 };
@@ -115,7 +115,7 @@ async function analyzeGemini(imageB64, mediaType, lang, retry = true) {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": GEMINI_KEY },
     body: JSON.stringify({
-      contents: [{ parts: [{ inline_data: { mime_type: mediaType, data: imageB64 } }, { text: lang === "en" ? PROMPT_EN : PROMPT_ZH }] }],
+      contents: [{ parts: [{ inline_data: { mime_type: mediaType, data: imageB64 } }, { text: (lang === "en" ? PROMPT_EN : PROMPT_ZH) + hintText(hint, lang) }] }],
       generationConfig: gen,
     }),
   });
@@ -123,7 +123,7 @@ async function analyzeGemini(imageB64, mediaType, lang, retry = true) {
   const msg = data?.error?.message || "";
   if (!res.ok && retry && !process.env.GEMINI_MODEL && (res.status === 404 || /no longer available|not found|deprecated|not supported/i.test(msg))) {
     GEMINI_MODEL = ""; // 模型被下线：重新选一个再试一次
-    return analyzeGemini(imageB64, mediaType, lang, false);
+    return analyzeGemini(imageB64, mediaType, lang, false, hint);
   }
   if (!res.ok) {
     const quota = res.status === 429;
@@ -133,8 +133,12 @@ async function analyzeGemini(imageB64, mediaType, lang, retry = true) {
   return parseJson(text);
 }
 
-async function analyze(imageB64, mediaType, lang) {
-  if (PROVIDER === "gemini") return analyzeGemini(imageB64, mediaType, lang);
+const hintText = (h, lang) => !h ? "" : lang === "en"
+  ? `\n\nUser note: this food is "${h}". Use it to identify the food and estimate calories; set is_food to true and use that name as dish.`
+  : `\n\n用户补充说明：这道菜/食物是「${h}」。请据此识别并估算热量，不要再怀疑它是什么；is_food 设为 true，dish 就用这个名字。`;
+
+async function analyze(imageB64, mediaType, lang, hint = "") {
+  if (PROVIDER === "gemini") return analyzeGemini(imageB64, mediaType, lang, true, hint);
   if (!API_KEY) {
     const e = new Error("服务器未设置 GEMINI_API_KEY（免费）或 ANTHROPIC_API_KEY");
     e.status = 503;
@@ -155,7 +159,7 @@ async function analyze(imageB64, mediaType, lang) {
           role: "user",
           content: [
             { type: "image", source: { type: "base64", media_type: mediaType, data: imageB64 } },
-            { type: "text", text: lang === "en" ? PROMPT_EN : PROMPT_ZH },
+            { type: "text", text: (lang === "en" ? PROMPT_EN : PROMPT_ZH) + hintText(hint, lang) },
           ],
         },
       ],
@@ -222,9 +226,9 @@ http
       }
       if (req.method === "POST" && url.pathname === "/api/analyze") {
         guard(req);
-        const { image, mediaType, lang } = JSON.parse(await readBody(req));
+        const { image, mediaType, lang, hint } = JSON.parse(await readBody(req));
         if (!image) return send(res, 400, { error: "缺少图片" });
-        const result = await analyze(image, mediaType || "image/jpeg", lang);
+        const result = await analyze(image, mediaType || "image/jpeg", lang, String(hint || "").slice(0, 80));
         return send(res, 200, result);
       }
       if (req.method === "GET") {
