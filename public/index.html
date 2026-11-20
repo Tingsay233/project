@@ -575,6 +575,9 @@ async function listGeminiModels(key){
   if (!names.length) throw new Error("No usable Gemini Flash model for this key");
   store.set("gmodels", names); return names;
 }
+async function googleReachable(){
+  try { await fetch("https://www.gstatic.com/generate_204", {mode:"no-cors", cache:"no-store"}); return true; } catch { return false; }
+}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function geminiDirect(b64, key){
   let names = await listGeminiModels(key), sawBusy = false, sawQuota = false, lastMsg = "";
@@ -582,9 +585,16 @@ async function geminiDirect(b64, key){
     for (const model of names.slice(0,4)) {          // 一个模型不行就换下一个
       const gen = {responseMimeType:"application/json", maxOutputTokens:4096};
       if (model.includes("2.5")) gen.thinkingConfig = {thinkingBudget:0};
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method:"POST", headers:{"content-type":"application/json","x-goog-api-key":key},
-        body: JSON.stringify({contents:[{parts:[{inline_data:{mime_type:"image/jpeg",data:b64}},{text:PROMPTS[lang]}]}], generationConfig:gen})});
+      let res;
+      try {
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+          method:"POST", headers:{"content-type":"application/json","x-goog-api-key":key},
+          body: JSON.stringify({contents:[{parts:[{inline_data:{mime_type:"image/jpeg",data:b64}},{text:PROMPTS[lang]}]}], generationConfig:gen})});
+      } catch (e) {
+        // 浏览器只说「失败」：分不清是真断网，还是 Google 繁忙时的错误没带 CORS 标记。ping 一下 Google 判断
+        if (!(await googleReachable())) throw new Error(t("err_net"));
+        sawBusy = true; await sleep(700); continue;
+      }
       const d = await res.json().catch(()=>({}));
       const msg = d.error?.message || "";
       if (res.ok) {
