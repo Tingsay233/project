@@ -40,6 +40,7 @@ nav button.on{color:var(--g);font-weight:700}nav span{display:block;font-size:21
 .x{background:none;color:var(--sub);width:auto;padding:4px 8px}
 .drop{display:block;border:2px dashed var(--g);border-radius:16px;padding:28px 12px;text-align:center;color:var(--g);background:var(--g2);cursor:pointer}
 .drop span{font-size:44px;display:block}
+.drops{display:flex;gap:10px}.drops .drop{flex:1;padding:22px 8px}.drops .drop span{font-size:38px}
 #preview{width:100%;max-height:300px;object-fit:cover;border-radius:12px;margin-bottom:12px;display:none}
 .tip{background:var(--g2);border-radius:12px;padding:10px 12px;font-size:14px;margin-top:10px}
 .big{font-size:34px;font-weight:800;color:var(--g)}
@@ -118,8 +119,12 @@ ul.g{padding-left:20px;margin:6px 0}ul.g li{margin:4px 0}
   <div class="top"><h1 data-i18n="h_snap"></h1></div>
   <div class="card">
     <img id="preview" alt="">
-    <label class="drop" for="file"><span>📷</span><b data-i18n="snap_btn"></b></label>
+    <div class="drops">
+      <label class="drop" for="file"><span>📷</span><b data-i18n="snap_btn"></b></label>
+      <label class="drop" for="fileGal"><span>🖼️</span><b data-i18n="pick_btn"></b></label>
+    </div>
     <input id="file" type="file" accept="image/*" capture="environment" hidden>
+    <input id="fileGal" type="file" accept="image/*" hidden>
     <div class="muted" style="margin-top:10px" data-i18n="snap_tip"></div>
     <div id="aiOff" class="err" style="display:none"></div>
     <div id="busy" class="muted" style="display:none;margin-top:10px" data-i18n="busy"></div>
@@ -141,7 +146,8 @@ ul.g{padding-left:20px;margin:6px 0}ul.g li{margin:4px 0}
     <div class="tip" id="rTip"></div>
     <div class="muted" style="margin-top:12px" data-i18n="hint_help"></div>
     <div class="row" style="margin-top:6px"><input id="hintIn" data-i18n-ph="hint_ph"><button class="sm" style="flex:0 0 auto" onclick="reanalyze()" data-i18n="hint_btn"></button></div>
-    <div class="row" style="margin-top:12px">
+    <label style="margin-top:12px"><span data-i18n="rdate"></span><input id="rDate" type="date"></label>
+    <div class="row" style="margin-top:2px">
       <select id="rMeal"></select>
       <button onclick="saveResult()" data-i18n="log_it"></button>
     </div>
@@ -251,7 +257,7 @@ zh:{
  setgoal_h:"先设置你的目标 👉",setgoal_p:"填写身体数据后，会自动算出你每天该吃多少卡路里。",setgoal_btn:"去设置",
  left:"还可以吃",kcal_goal:"千卡 / 目标",kcal:"千卡",protein:"蛋白质",carbs:"碳水",fat:"脂肪",
  ate_h:"今天吃了什么",ate_empty:"还没有记录，去「拍照」记第一餐吧 📷",manual_h:"手动添加",add:"添加",
- snap_btn:"点击拍照 / 选择照片",ai_off:"服务器还没有设置 AI 密钥，拍照识别暂不可用。可先用「今日」页手动添加。",
+ snap_btn:"拍照",pick_btn:"从相册上传",rdate:"记到哪一天（上传旧照片时可改日期）",ai_off:"服务器还没有设置 AI 密钥，拍照识别暂不可用。可先用「今日」页手动添加。",
  today_lbl:"今天",back_today:"回到今天",week_h:"📅 最近 7 天（点一天可查看）",hint_help:"🤔 AI 看不出具体是什么菜？告诉它，它会按你说的重新估算：",hint_ph:"例如：咖喱马铃薯鸡肉",hint_btn:"重新估算",rename:"改名",rename_p:"这道菜叫什么？",
  adv_left:(n,m,x)=>`💡 今天还剩 ${n} 千卡。${m}建议吃约 ${x} 千卡。`,adv_snack:n=>`💡 今天的餐都记录了，还剩 ${n} 千卡，可以安排一份健康点心。`,adv_over:n=>`⚠️ 今天已超出目标 ${n} 千卡。别自责，之后少吃一点，散步 20 分钟约消耗 80 千卡。`,
  snap_tip:"💡 拍小一点的范围、光线要亮。包装零食可以拍包装正面，想更准就拍背面的营养标签。",busy:"🔍 AI 正在分析食物，请稍等…",pw_need:"🔒 需要访问密码",pw_unlock:"解锁并继续",pw_wrong:"密码不对",set_h:"⚙️ 设置",set_gkey:"Gemini 密钥（免费，拍照识别用）",set_gkey_help:"在 aistudio.google.com/apikey 免费申请，只保存在这部手机上，不会上传到别处。",upd_h:"🔄 应用更新",upd_btn:"检查更新",upd_ver:"当前版本：build ",upd_latest:"✓ 已经是最新版本",upd_new:n=>`发现新版本 build ${n}`,upd_dl:"下载新版",upd_hint:"下载后点开安装即可覆盖更新，记录不会丢。",err_busy:"Google 的 AI 现在太忙了（很多人在用）。已自动试过其他模型，请 30 秒后再拍一次。",err_net:"连不上 Google。请检查手机网络（Wi-Fi/流量），并关闭 VPN 后再试。",need_key:"👉 拍照识别需要免费的 Gemini 密钥：到「计划」页底部「设置」里填写。",err_key:"密钥无效，请检查",err_quota:"免费额度暂时用完，请稍后再试",set_server:"自建服务器网址（可不填）",set_pw:"访问密码（如果服务器设置了）",set_save:"保存并测试",set_ok:"✓ 连接正常",set_fail:"✗ 连不上服务器，请检查网址",fav_h:"⭐ 常吃食物（点一下直接记入）",fav_empty:"还没有收藏。在拍照结果或今天的记录上点 ☆ 就能收藏。",fav_this:"⭐ 收藏这一餐，下次一键记录",fav_saved:"已收藏 ✓",adj_hint:"👆 份量或热量不对？点 − / + 调份量，也可以直接改右边的热量数字（比如照包装标签），✕ 去掉没吃的",reset:"↺ 恢复 AI 原始估算",log_it:"记入今天",meals:["早餐","午餐","晚餐","点心"],
@@ -288,7 +294,7 @@ en:{
  setgoal_h:"Set your goal first 👉",setgoal_p:"Enter your body stats and we'll calculate how many calories you should eat each day.",setgoal_btn:"Set up",
  left:"Left to eat",kcal_goal:"kcal / goal",kcal:"kcal",protein:"Protein",carbs:"Carbs",fat:"Fat",
  ate_h:"What I ate today",ate_empty:"Nothing logged yet — snap your first meal 📷",manual_h:"Add manually",add:"Add",
- snap_btn:"Tap to take / choose a photo",ai_off:"The server has no AI key set, so photo recognition is off. Use manual add on the Today tab.",
+ snap_btn:"Take photo",pick_btn:"Upload from gallery",rdate:"Log to which day (change it for older photos)",ai_off:"The server has no AI key set, so photo recognition is off. Use manual add on the Today tab.",
  today_lbl:"Today",back_today:"Back to today",week_h:"📅 Last 7 days (tap a day to view)",hint_help:"🤔 Can't the AI tell what the dish is? Tell it and it will re-estimate:",hint_ph:"e.g. potato chicken curry",hint_btn:"Re-estimate",rename:"Rename",rename_p:"What is this dish called?",
  adv_left:(n,m,x)=>`💡 ${n} kcal left today. About ${x} kcal for ${m}.`,adv_snack:n=>`💡 All meals logged, ${n} kcal left — room for a healthy snack.`,adv_over:n=>`⚠️ You're ${n} kcal over today. No guilt — eat a bit lighter later; a 20-min walk burns about 80 kcal.`,
  snap_tip:"💡 Get close and use good light. For packaged snacks, photograph the front of the pack — or the nutrition label on the back for better accuracy.",busy:"🔍 AI is analysing your food…",pw_need:"🔒 Access password required",pw_unlock:"Unlock & continue",pw_wrong:"Wrong password",set_h:"⚙️ Settings",set_gkey:"Gemini API key (free, for photo recognition)",set_gkey_help:"Get one free at aistudio.google.com/apikey. It stays on this phone only.",upd_h:"🔄 App update",upd_btn:"Check for updates",upd_ver:"Current version: build ",upd_latest:"✓ You're on the latest version",upd_new:n=>`New version available: build ${n}`,upd_dl:"Download",upd_hint:"Open the downloaded file to update in place — your data is kept.",err_busy:"Google's AI is very busy right now. I already tried other models — please try again in 30 seconds.",err_net:"Can't reach Google. Check your phone's internet connection and turn off any VPN, then try again.",need_key:"👉 Photo recognition needs a free Gemini key: enter it in Plan → Settings (bottom).",err_key:"Invalid key, please check",err_quota:"Free quota reached, try again later",set_server:"Own server URL (optional)",set_pw:"Access password (if the server has one)",set_save:"Save & test",set_ok:"✓ Connected",set_fail:"✗ Can't reach the server, check the URL",fav_h:"⭐ Favorites (tap to log)",fav_empty:"No favorites yet. Tap ☆ on a photo result or a logged item to save it.",fav_this:"⭐ Save this meal as a favorite",fav_saved:"Saved ✓",adj_hint:"👆 Portion or calories off? Tap − / + to scale, or type the kcal directly (e.g. from the pack label). ✕ removes what you didn't eat",reset:"↺ Reset to AI estimate",log_it:"Log it",meals:["Breakfast","Lunch","Dinner","Snack"],
@@ -409,8 +415,9 @@ function renderPlan(){
 // ================= diary =================
 let viewDate = today();
 const dayLog = () => diary[viewDate] || [];
-function addEntry(e){
-  viewDate = today(); (diary[viewDate] ||= []).push(e);
+function addEntry(e, date = today()){
+  if (!date || date > today()) date = today();
+  viewDate = date; (diary[viewDate] ||= []).push(e);
   const cut = iso(new Date(Date.now() - 60*864e5));            // 超过 60 天的缩略图删掉，避免占满手机存储
   for (const k in diary) if (k < cut) diary[k].forEach(x => { delete x.img; });
   store.set("diary", diary); render();
@@ -593,15 +600,23 @@ function chartSVG(w){
 let last = null;
 const apiBase = () => (store.get("apiBase","") || (window.APP_CONFIG && APP_CONFIG.apiBase) || "").replace(/\/$/,"");
 const authHeaders = () => ({"content-type":"application/json", "x-access-password": store.get("pw","")});
-let pending = null;
-$("file").addEventListener("change", async ev => {
+let pending = null, photoDate = "";
+async function onPick(ev){
   const f = ev.target.files[0]; if (!f) return;
+  // 从相册上传的照片，默认记到「照片拍摄那天」（最多往前 60 天，不能是未来）；相机拍的就记今天
+  photoDate = today();
+  if (ev.target.id === "fileGal" && f.lastModified) {
+    const d = iso(new Date(f.lastModified));
+    if (d <= today() && d >= iso(new Date(Date.now() - 60*864e5))) photoDate = d;
+  }
   $("err").textContent = ""; $("result").style.display = "none"; $("pwBox").style.display = "none"; last = null;
   try { pending = await shrink(f, 1024); $("preview").src = pending; $("preview").style.display = "block"; }
   catch(e){ $("err").textContent = "❌ " + e.message; pending = null; }
   ev.target.value = "";
   if (pending) analyze();
-});
+}
+$("file").addEventListener("change", onPick);
+$("fileGal").addEventListener("change", onPick);
 const PROMPTS = {zh:`你是一位专业营养师。请分析这张食物照片，估算图中每样食物的份量与营养。
 只输出一个 JSON 对象，不要任何其他文字，格式：
 {
@@ -793,7 +808,7 @@ function showResult(j, scroll){
   $("rMac").textContent = `${t("protein")} ${Math.round(tot.protein)}g · ${t("carbs")} ${Math.round(tot.carbs)}g · ${t("fat")} ${Math.round(tot.fat)}g`;
   $("rTip").textContent = "💡 " + (j.tip || "");
   document.querySelector("#result button[data-i18n=log_it]").disabled = tot.kcal<=0;
-  if (scroll) { $("hintIn").value = ""; $("rMeal").value = guessMeal(); $("result").scrollIntoView({behavior:"smooth"}); }
+  if (scroll) { $("rDate").max = today(); $("rDate").value = photoDate || today(); $("hintIn").value = ""; $("rMeal").value = guessMeal(); $("result").scrollIntoView({behavior:"smooth"}); }
 }
 // 直接输入这一项的热量（比如照着包装标签改）：按比例连带改蛋白质/碳水/脂肪
 function setKcal(n, v){
@@ -807,7 +822,7 @@ function resetItems(){ (last.items||[]).forEach(i=>{ i.m = 1; i.off = false; });
 async function saveResult(){
   const x = resultTotal(last); let img = "";
   try { if (pending) img = await makeThumb(pending); } catch {}
-  addEntry({name:(last.dish||"").trim() || t("photo_meal"), meal:+$("rMeal").value, kcal:x.kcal, p:x.protein, c:x.carbs, f:x.fat, img});
+  addEntry({name:(last.dish||"").trim() || t("photo_meal"), meal:+$("rMeal").value, kcal:x.kcal, p:x.protein, c:x.carbs, f:x.fat, img}, $("rDate").value);
   last = null; pending = null; $("result").style.display = "none"; $("preview").style.display = "none"; go("today");
 }
 
