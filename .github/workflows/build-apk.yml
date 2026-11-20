@@ -37,6 +37,15 @@ jobs:
           # 拍照需要相机权限
           sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <application#' android/app/src/main/AndroidManifest.xml
 
+      # 每次构建的版本号递增，系统才会把新包当成「更新」而不是冲突
+      - name: Set version code
+        env:
+          BUILD: ${{ github.run_number }}
+        run: |
+          F=android-app/android/app/build.gradle
+          sed -i "s/versionCode [0-9]*/versionCode $BUILD/; s/versionName \"[^\"]*\"/versionName \"1.0.$BUILD\"/" $F
+          grep -nE "versionCode|versionName" $F
+
       # 固定签名：每次构建用同一把 debug 钥匙，新版 APK 才能直接覆盖安装旧版（不丢数据）
       - name: Use fixed debug keystore
         run: |
