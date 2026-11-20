@@ -17,7 +17,10 @@ jobs:
 
       # 把你的服务器网址写进 App（在仓库 Settings → Secrets and variables → Actions → Variables 里加 SERVER_URL）
       - name: Inject server URL
-        run: echo "window.APP_CONFIG = { apiBase: \"${{ vars.SERVER_URL }}\" };" > public/config.js
+        env:
+          SERVER_URL: ${{ vars.SERVER_URL }}
+        run: |
+          echo "window.APP_CONFIG = { apiBase: \"$SERVER_URL\" };" > public/config.js
 
       - name: Create Android project
         working-directory: android-app
