@@ -32,6 +32,12 @@ jobs:
           # 拍照需要相机权限
           sed -i 's#<application#<uses-permission android:name="android.permission.CAMERA" />\n    <application#' android/app/src/main/AndroidManifest.xml
 
+      # 固定签名：每次构建用同一把 debug 钥匙，新版 APK 才能直接覆盖安装旧版（不丢数据）
+      - name: Use fixed debug keystore
+        run: |
+          mkdir -p ~/.android
+          cp android-app/debug.keystore ~/.android/debug.keystore
+
       - name: Build debug APK
         working-directory: android-app/android
         run: ./gradlew assembleDebug --no-daemon

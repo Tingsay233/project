@@ -7,7 +7,7 @@ const path = require("path");
 const PORT = process.env.PORT || 3000;
 const GEMINI_KEY = process.env.GEMINI_API_KEY;      // 免费：https://aistudio.google.com/apikey
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+let GEMINI_MODEL = process.env.GEMINI_MODEL || ""; // 留空 = 自动向 Google 询问并选最新的 Flash
 const PROVIDER = process.env.AI_PROVIDER || (GEMINI_KEY ? "gemini" : ANTHROPIC_KEY ? "claude" : "none");
 const API_KEY = PROVIDER === "gemini" ? GEMINI_KEY : PROVIDER === "claude" ? ANTHROPIC_KEY : "";
 const MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5-5";
@@ -91,10 +91,27 @@ function parseJson(text) {
   return JSON.parse(m[0]);
 }
 
-async function analyzeGemini(imageB64, mediaType, lang) {
-  const gen = { responseMimeType: "application/json", maxOutputTokens: 2048, temperature: 0.2 };
-  if (GEMINI_MODEL.includes("2.5")) gen.thinkingConfig = { thinkingBudget: 0 }; // 不需要长思考，更快更省
-  const res = await fetch(`${process.env.GEMINI_BASE || "https://generativelanguage.googleapis.com"}/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+async function pickGeminiModel() {
+  if (GEMINI_MODEL) return GEMINI_MODEL;
+  const base = process.env.GEMINI_BASE || "https://generativelanguage.googleapis.com";
+  const res = await fetch(`${base}/v1beta/models?pageSize=200`, { headers: { "x-goog-api-key": GEMINI_KEY } });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(d?.error?.message || "无法获取模型列表"), { status: 502 });
+  const ver = (n) => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+  const pre = (n) => (/preview|exp/.test(n) ? 1 : 0);
+  const c = (d.models || [])
+    .filter((x) => (x.supportedGenerationMethods || []).includes("generateContent"))
+    .filter((x) => /gemini-\d+(\.\d+)?-flash/.test(x.name) && !/image|tts|live|audio|lite|thinking|robotics|computer|embedding/.test(x.name))
+    .sort((a, b) => ver(b.name) - ver(a.name) || pre(a.name) - pre(b.name));
+  if (!c.length) throw Object.assign(new Error("没有可用的 Gemini Flash 模型"), { status: 502 });
+  return (GEMINI_MODEL = c[0].name.replace(/^models\//, ""));
+}
+
+async function analyzeGemini(imageB64, mediaType, lang, retry = true) {
+  const model = await pickGeminiModel();
+  const gen = { responseMimeType: "application/json", maxOutputTokens: 4096 };
+  if (model.includes("2.5")) gen.thinkingConfig = { thinkingBudget: 0 };
+  const res = await fetch(`${process.env.GEMINI_BASE || "https://generativelanguage.googleapis.com"}/v1beta/models/${model}:generateContent`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-goog-api-key": GEMINI_KEY },
     body: JSON.stringify({
@@ -103,9 +120,14 @@ async function analyzeGemini(imageB64, mediaType, lang) {
     }),
   });
   const data = await res.json().catch(() => ({}));
+  const msg = data?.error?.message || "";
+  if (!res.ok && retry && !process.env.GEMINI_MODEL && (res.status === 404 || /no longer available|not found|deprecated|not supported/i.test(msg))) {
+    GEMINI_MODEL = ""; // 模型被下线：重新选一个再试一次
+    return analyzeGemini(imageB64, mediaType, lang, false);
+  }
   if (!res.ok) {
     const quota = res.status === 429;
-    throw Object.assign(new Error(quota ? "免费额度暂时用完，请稍后再试 / Free quota reached, try later" : data?.error?.message || "AI 服务出错"), { status: quota ? 429 : 502 });
+    throw Object.assign(new Error(quota ? "免费额度暂时用完，请稍后再试 / Free quota reached, try later" : msg || "AI 服务出错"), { status: quota ? 429 : 502 });
   }
   const text = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("");
   return parseJson(text);

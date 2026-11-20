@@ -551,17 +551,40 @@ Output ONLY one JSON object, no other text, in this format:
 }
 If the image is not food, set is_food to false and leave the rest empty.
 For Southeast Asian / Chinese dishes (nasi lemak, char kway teow, Hainanese chicken rice, laksa, teh tarik, etc.) estimate based on how they are really cooked, and count oil and sauces.`};
-async function geminiDirect(b64, key){
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", {
-    method:"POST", headers:{"content-type":"application/json","x-goog-api-key":key},
-    body: JSON.stringify({contents:[{parts:[{inline_data:{mime_type:"image/jpeg",data:b64}},{text:PROMPTS[lang]}]}],
-      generationConfig:{responseMimeType:"application/json",maxOutputTokens:2048,temperature:0.2,thinkingConfig:{thinkingBudget:0}}})});
+// 向 Google 询问「这个密钥现在能用哪些模型」，自动选版本最高的 Flash（模型名以后再变也不用改代码）
+async function pickGeminiModel(key){
+  const cached = store.get("gmodel","");
+  if (cached) return cached;
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", {headers:{"x-goog-api-key":key}});
   const d = await res.json().catch(()=>({}));
+  if (!res.ok) throw new Error(t("err_key") + (d.error?.message ? " ("+d.error.message.slice(0,80)+")" : ""));
+  const ver = n => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/)||[0,0])[1]);
+  const pre = n => /preview|exp/.test(n) ? 1 : 0;
+  const c = (d.models||[])
+    .filter(x => (x.supportedGenerationMethods||[]).includes("generateContent"))
+    .filter(x => /gemini-\d+(\.\d+)?-flash/.test(x.name) && !/image|tts|live|audio|lite|thinking|robotics|computer|embedding/.test(x.name))
+    .sort((a,b) => ver(b.name)-ver(a.name) || pre(a.name)-pre(b.name));
+  if (!c.length) throw new Error("No usable Gemini Flash model for this key");
+  const m = c[0].name.replace(/^models\//,"");
+  store.set("gmodel", m); return m;
+}
+async function geminiDirect(b64, key, retry = true){
+  const model = await pickGeminiModel(key);
+  const gen = {responseMimeType:"application/json", maxOutputTokens:4096};
+  if (model.includes("2.5")) gen.thinkingConfig = {thinkingBudget:0};
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method:"POST", headers:{"content-type":"application/json","x-goog-api-key":key},
+    body: JSON.stringify({contents:[{parts:[{inline_data:{mime_type:"image/jpeg",data:b64}},{text:PROMPTS[lang]}]}], generationConfig:gen})});
+  const d = await res.json().catch(()=>({}));
+  const msg = d.error?.message || "";
+  if (!res.ok && retry && (res.status===404 || /no longer available|not found|deprecated|not supported/i.test(msg))) {
+    store.set("gmodel",""); return geminiDirect(b64, key, false); // 模型被下线了：重新选一个再试一次
+  }
   if (res.status===429) throw new Error(t("err_quota"));
-  if (res.status===400 || res.status===403) throw new Error(t("err_key") + (d.error?.message ? " ("+d.error.message.slice(0,80)+")" : ""));
-  if (!res.ok) throw new Error(d.error?.message || t("err_fail"));
+  if (res.status===400 || res.status===403) throw new Error(t("err_key") + (msg ? " ("+msg.slice(0,80)+")" : ""));
+  if (!res.ok) throw new Error((msg || t("err_fail")) + " ["+model+"]");
   const txt = (d.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
-  const m = txt.match(/\{[\s\S]*\}/); if (!m) throw new Error(t("err_fail"));
+  const m = txt.match(/\{[\s\S]*\}/); if (!m) throw new Error(t("err_fail") + " ["+model+"]");
   return JSON.parse(m[0]);
 }
 async function analyze(){
@@ -589,7 +612,7 @@ async function saveSettings(){
   const srv = $("srvIn").value.trim();
   if (window.Capacitor) store.set("apiBase", srv);
   store.set("pw", $("pwSet").value);
-  const gk = $("gkeySet").value.trim(); store.set("gkey", gk);
+  const gk = $("gkeySet").value.trim(); if (gk !== store.get("gkey","")) store.set("gmodel",""); store.set("gkey", gk);
   const m = $("setMsg"); m.textContent = "…";
   if (gk) { // 只测试密钥是否有效（列模型，不消耗识别额度）
     try { const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1", {headers:{"x-goog-api-key":gk}});
