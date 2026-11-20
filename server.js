@@ -66,7 +66,7 @@ const PROMPT_ZH = `你是一位专业营养师。请分析这张食物照片，�
   "health_score": 1到10的整数（10最适合减肥）,
   "tip": "一句针对减肥的具体建议，例如如何少吃点热量、怎么替换"
 }
-饮料、零食、包装食品、水果也算食物；只有画面里完全没有任何食物或饮料时，才把 is_food 设为 false。照片模糊或光线暗时仍请尽力估算，并把 confidence 设为 low。
+锅里、碗里、盘里的各种煮好的菜（咖喱、肉类、炒菜、汤）、饮料、零食、包装食品、水果都算食物，哪怕光线暗、颜色看不清、没有摆盘；只有画面里完全没有任何食物或饮料时，才把 is_food 设为 false。照片模糊或光线暗时仍请尽力估算，并把 confidence 设为 low。
 常见东南亚/中式食物（椰浆饭、炒粿条、海南鸡饭、叻沙、面包、奶茶等）请按实际做法估算，油和酱汁也要计入。`;
 
 const PROMPT_EN = `You are a professional dietitian. Analyze this food photo and estimate the portion and nutrition of every food in it.
@@ -82,7 +82,7 @@ Output ONLY one JSON object, no other text, in this format:
   "health_score": integer 1-10 (10 = best for weight loss),
   "tip": "one specific weight-loss tip, e.g. how to cut calories or what to swap"
 }
-Drinks, snacks, packaged foods and fruit all count as food; set is_food to false only if there is no food or drink at all. If the photo is blurry or dark, still make your best estimate and set confidence to low.
+Cooked dishes in a pot, pan, bowl or plate (curry, meat, stir-fry, soup), drinks, snacks, packaged foods and fruit all count as food, even if the lighting is poor, the colours are unclear or it is not plated; set is_food to false only if there is no food or drink at all. If the photo is blurry or dark, still make your best estimate and set confidence to low.
 For Southeast Asian / Chinese dishes (nasi lemak, char kway teow, Hainanese chicken rice, laksa, teh tarik, etc.) estimate based on how they are really cooked, and count oil and sauces.`;
 
 function parseJson(text) {

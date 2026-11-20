@@ -542,7 +542,7 @@ const PROMPTS = {zh:`你是一位专业营养师。请分析这张食物照片�
   "health_score": 1到10的整数（10最适合减肥）,
   "tip": "一句针对减肥的具体建议，例如如何少吃点热量、怎么替换"
 }
-饮料、零食、包装食品、水果也算食物；只有画面里完全没有任何食物或饮料时，才把 is_food 设为 false。照片模糊或光线暗时仍请尽力估算，并把 confidence 设为 low。
+锅里、碗里、盘里的各种煮好的菜（咖喱、肉类、炒菜、汤）、饮料、零食、包装食品、水果都算食物，哪怕光线暗、颜色看不清、没有摆盘；只有画面里完全没有任何食物或饮料时，才把 is_food 设为 false。照片模糊或光线暗时仍请尽力估算，并把 confidence 设为 low。
 常见东南亚/中式食物（椰浆饭、炒粿条、海南鸡饭、叻沙、面包、奶茶等）请按实际做法估算，油和酱汁也要计入。`, en:`You are a professional dietitian. Analyze this food photo and estimate the portion and nutrition of every food in it.
 Output ONLY one JSON object, no other text, in this format:
 {
@@ -556,7 +556,7 @@ Output ONLY one JSON object, no other text, in this format:
   "health_score": integer 1-10 (10 = best for weight loss),
   "tip": "one specific weight-loss tip, e.g. how to cut calories or what to swap"
 }
-Drinks, snacks, packaged foods and fruit all count as food; set is_food to false only if there is no food or drink at all. If the photo is blurry or dark, still make your best estimate and set confidence to low.
+Cooked dishes in a pot, pan, bowl or plate (curry, meat, stir-fry, soup), drinks, snacks, packaged foods and fruit all count as food, even if the lighting is poor, the colours are unclear or it is not plated; set is_food to false only if there is no food or drink at all. If the photo is blurry or dark, still make your best estimate and set confidence to low.
 For Southeast Asian / Chinese dishes (nasi lemak, char kway teow, Hainanese chicken rice, laksa, teh tarik, etc.) estimate based on how they are really cooked, and count oil and sauces.`};
 // 向 Google 询问「这个密钥现在能用哪些模型」，按「版本高的 Flash 优先，lite 垫底」排好队
 async function listGeminiModels(key){
@@ -580,7 +580,7 @@ async function googleReachable(){
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function geminiDirect(b64, key){
-  let names = await listGeminiModels(key), sawBusy = false, sawQuota = false, lastMsg = "";
+  let names = await listGeminiModels(key), sawBusy = false, sawQuota = false, lastMsg = "", nonFood = null;
   for (let round = 0; round < 2; round++) {          // 全部忙时，歇一下再来一轮
     for (const model of names.slice(0,4)) {          // 一个模型不行就换下一个
       const gen = {responseMimeType:"application/json", maxOutputTokens:4096};
@@ -600,7 +600,11 @@ async function geminiDirect(b64, key){
       if (res.ok) {
         const txt = (d.candidates?.[0]?.content?.parts||[]).map(p=>p.text||"").join("");
         const m = txt.match(/\{[\s\S]*\}/);
-        if (m) { try { return JSON.parse(m[0]); } catch {} }
+        if (m) { try {
+          const j = JSON.parse(m[0]); j._model = model;
+          if (looksLikeFood(j)) return j;
+          nonFood = nonFood || j; continue;           // 这个模型说「不是食物」：再问下一个模型要第二意见
+        } catch {} }
         lastMsg = t("err_fail") + " ["+model+"]"; continue;
       }
       if (res.status===404 || /no longer available|not found|deprecated|not supported/i.test(msg)) { // 下线了：从名单里划掉
@@ -613,6 +617,7 @@ async function geminiDirect(b64, key){
     if (!sawBusy || round===1) break;
     await sleep(2500);
   }
+  if (nonFood) return nonFood;                        // 所有模型都说不是食物
   if (!names.length) throw new Error("No usable Gemini Flash model for this key");
   throw new Error(sawBusy ? t("err_busy") : sawQuota ? t("err_quota") : (lastMsg || t("err_fail")));
 }
@@ -624,13 +629,14 @@ function looksLikeFood(j){
   if (n > 0 && kcal > 0) { j.confidence = "low"; return true; }
   return false;
 }
+let dbg = null;
 async function analyze(){
   $("err").textContent = ""; $("busy").style.display = "block";
   try {
     const gkey = store.get("gkey","");
     if (gkey) { // 直连 Gemini：不需要任何服务器（APK 的默认方式）
       const j = await geminiDirect(pending.split(",")[1], gkey);
-      if (!looksLikeFood(j)) throw new Error(t("err_nofood"));
+      if (!looksLikeFood(j)) { dbg = j; throw new Error(t("err_nofood")); }
       last = j; pending = null; showResult(j, true); return;
     }
     if (window.Capacitor && !apiBase()) { go("plan"); throw new Error(t("need_key")); }
@@ -639,11 +645,18 @@ async function analyze(){
     const j = await res.json().catch(()=>({}));
     if (res.status===401) { $("pwBox").style.display = "block"; $("pwIn").focus(); throw new Error(store.get("pw","") ? t("pw_wrong") : t("pw_need")); }
     if (!res.ok) throw new Error(j.error || t("err_fail"));
-    if (!looksLikeFood(j)) throw new Error(t("err_nofood"));
+    if (!looksLikeFood(j)) { dbg = j; throw new Error(t("err_nofood")); }
     last = j; pending = null; showResult(j, true);
   } catch(e){ const offline = /Failed to fetch|Load failed|NetworkError/i.test(e.message);
-    $("err").textContent = "❌ " + (offline ? (store.get("gkey","") ? t("err_net") : t("set_fail")) : e.message); }
-  finally { $("busy").style.display = "none"; }
+    if (dbg) { var dbgNow = dbg; dbg = null; }
+    $("err").textContent = "❌ " + (offline ? (store.get("gkey","") ? t("err_net") : t("set_fail")) : e.message);
+    if (typeof dbgNow !== "undefined" && dbgNow) { // 给开发者看的详情：AI 实际回了什么
+      const d = document.createElement("details"); d.style.cssText = "margin-top:6px;font-size:12px;color:var(--sub);word-break:break-all";
+      const sm = document.createElement("summary"); sm.textContent = "Details"; d.appendChild(sm);
+      d.appendChild(document.createTextNode((dbgNow._model||"") + " " + JSON.stringify(dbgNow).slice(0,700)));
+      $("err").appendChild(d);
+    }
+  } finally { $("busy").style.display = "none"; }
 }
 function unlock(){ store.set("pw", $("pwIn").value); $("pwIn").value = ""; $("pwBox").style.display = "none"; analyze(); }
 async function saveSettings(){
